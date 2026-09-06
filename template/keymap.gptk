@@ -1,0 +1,40 @@
+# ==============================================================================
+# mkrp - Universal Gamepad Mapping for PortMaster Handhelds
+# Hardware Layout: Anbernic RG40XXH / RG VITA PRO / RG DS (Standard Nintendo/Xbox)
+# ==============================================================================
+
+back = esc
+start = enter
+
+a = enter
+b = pageup
+x = h
+y = m
+
+l1 = tab
+l2 = a
+r1 = v
+r2 = f
+
+up = up
+down = down
+left = left
+right = right
+
+left_analog_up = mouse_movement_up
+left_analog_down = mouse_movement_down
+left_analog_left = mouse_movement_left
+left_analog_right = mouse_movement_right
+
+right_analog_up = mouse_movement_up
+right_analog_down = mouse_movement_down
+right_analog_left = mouse_movement_left
+right_analog_right = mouse_movement_right
+
+deadzone_mode = axial
+deadzone = 2000
+deadzone_scale = 8
+deadzone_delay = 16
+
+mouse_scale = 6
+mouse_delay = 10

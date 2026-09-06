@@ -1,0 +1,23 @@
+{
+  "name": "mkrp",
+  "version": "0.1.0",
+  "description": "PortMaster Runner for Ren'Py Visual Novels (Ren'Py 8 & 7)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "clean": "node scripts/clean.mjs"
+  },
+  "keywords": [
+    "renpy",
+    "portmaster",
+    "anbernic",
+    "knulli",
+    "rocknix",
+    "visual-novel"
+  ],
+  "author": "mkrp Team",
+  "license": "MIT",
+  "devDependencies": {
+    "adm-zip": "^0.5.16"
+  }
+}

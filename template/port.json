@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "name": "mkrp.zip",
+  "items": [
+    "mkrp.sh",
+    "mkrp"
+  ],
+  "items_opt": [],
+  "attr": {
+    "title": "Ren'Py Engine Runner (mkrp)",
+    "desc": "PortMaster Lightweight Runner for Ren'Py visual novels (Ren'Py 8 & 7).",
+    "inst": "Copy your Ren'Py game folder contents (game/ folder containing .rpa or .rpyc files) into ports/mkrp/game/",
+    "genres": [
+      "Visual Novel",
+      "Adventure"
+    ],
+    "portdesc": "Lightweight native Ren'Py engine runner built with Rust & SDL2, optimized for low RAM devices (Knulli, ROCKNIX).",
+    "porter": [
+      "mkrp Team"
+    ],
+    "image": {},
+    "rtr": false,
+    "exp": false,
+    "runtime": null,
+    "reqs": [],
+    "arch": [
+      "aarch64"
+    ]
+  }
+}

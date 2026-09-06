@@ -1,0 +1,21 @@
+[package]
+name = "mkrp-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "mkrp"
+path = "src/main.rs"
+
+[dependencies]
+mkrp-core = { path = "../mkrp-core" }
+mkrp-rpa = { path = "../mkrp-rpa" }
+mkrp-rpyc = { path = "../mkrp-rpyc" }
+mkrp-render = { path = "../mkrp-render" }
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+log.workspace = true
+walkdir.workspace = true
+image = { version = "0.25", default-features = false, features = ["png", "jpeg"] }
