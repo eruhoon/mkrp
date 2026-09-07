@@ -1,9 +1,38 @@
+﻿# Rust build artifacts
 /target/
+**/*.rs.bk
+
+# Distribution and packaging
+/dist/
+*.zip
+*.tar.gz
+*.squashfs
+*.deb
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Python & Ren'Py artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
 *.rpa
-*.rpy
 *.rpyc
+*.rpyb
+*.rpym
+*.rpymc
+
+# Logs and temporary files
 *.log
 *.tmp
+*.bak
+control
 
-node_modules/
-
+# OS generated
+.DS_Store
+Thumbs.db
+ehthumbs.db
