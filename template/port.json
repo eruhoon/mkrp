@@ -14,7 +14,7 @@
       "Visual Novel",
       "Adventure"
     ],
-    "portdesc": "Lightweight native Ren'Py engine runner built with Rust & SDL2, optimized for low RAM devices (Knulli, ROCKNIX).",
+    "portdesc": "PortMaster Ren'Py port template and runtime configuration optimized for handheld devices (Knulli, ROCKNIX, ArkOS).",
     "porter": [
       "mkrp Team"
     ],

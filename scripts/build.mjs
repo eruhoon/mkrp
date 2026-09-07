@@ -19,25 +19,7 @@ async function build() {
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
   fs.mkdirSync(DIST_APP_DIR, { recursive: true });
 
-  // 2. Copy Linux aarch64 binary if built
-  const possibleBinaryPaths = [
-    path.join(ROOT_DIR, 'target', 'aarch64-unknown-linux-gnu', 'release', 'mkrp'),
-    path.join(ROOT_DIR, 'target', 'aarch64-unknown-linux-gnu', 'debug', 'mkrp'),
-  ];
 
-  let binaryCopied = false;
-  for (const binPath of possibleBinaryPaths) {
-    if (fs.existsSync(binPath)) {
-      fs.copyFileSync(binPath, path.join(DIST_APP_DIR, 'mkrp'));
-      console.log(`[mkrp] Included Linux aarch64 binary from: ${binPath}`);
-      binaryCopied = true;
-      break;
-    }
-  }
-
-  if (!binaryCopied) {
-    console.log('[mkrp] Note: Native binary not yet built. Packaging templates & metadata.');
-  }
 
   // 3. Copy template files
   const templateFiles = ['port.json', 'keymap.gptk'];

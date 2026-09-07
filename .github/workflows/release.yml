@@ -17,16 +17,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
-
-      - name: Setup cross-compilation tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,11 +25,7 @@ jobs:
       - name: Install packaging dependencies
         run: npm install
 
-      - name: Build aarch64 native binary
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-        run: |
-          cargo build --release --target aarch64-unknown-linux-gnu
+
 
       - name: Build PortMaster package
         run: npm run build
