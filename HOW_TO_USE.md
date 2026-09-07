@@ -1,31 +1,27 @@
-# 📖 mkrp 사용 가이드 (How to use mkrp)
+﻿# 📖 mkrp 사용 가이드 (How to use mkrp)
 
-`mkrp`는 RG40XXH(Knulli), RG VITA PRO(ROCKNIX), RG DS(ROCKNIX) 등 Linux ARM64 핸드헬드 기기의 **PortMaster** 환경에서 **Ren'Py 게임(Ren'Py 8 & 7)**을 가볍고 안정적으로 플레이할 수 있도록 제작된 전용 런타임입니다.
+`mkrp`는 RG VITA PRO(ROCKNIX), RG40XXH(Knulli), RG DS 등 Linux ARM64 핸드헬드 기기의 **PortMaster** 환경에서 **Ren'Py 비주얼 노벨 게임**을 쾌적하고 안정적으로 플레이할 수 있도록 돕는 실기기 세팅 가이드입니다.
 
 ---
 
-## 🎮 빠른 시작
+## 🎮 빠른 시작 (PortMaster 표준 Ren'Py 환경)
 
-1. **배포 압축 파일 다운로드**:
-   - `dist/mkrp-v0.1.0.zip` 파일을 준비합니다.
-2. **SD 카드에 복사**:
-   - 기기의 SD 카드 경로 `roms/ports/` (또는 기기 OS별 ports 폴더)에 압축을 풉니다.
-   - 올바른 경로 구조:
-     ```text
-     roms/
-       ports/
-         mkrp.sh          <-- 포트마스터 런처
-         mkrp/            <-- 런타임 폴더
-           mkrp           <-- 네이티브 바이너리
-           port.json
-           keymap.gptk
-           game/          <-- ⭐️ 여기에 게임 파일 복사
-           saves/
-     ```
-3. **게임 파일 넣기**:
-   - 플레이하고자 하는 Ren'Py PC 게임의 `game` 폴더 내용물(`.rpa` 또는 `.rpyc` 파일들)을 `roms/ports/mkrp/game/` 폴더 안에 복사합니다.
-4. **기기에서 실행**:
-   - 기기 메인 메뉴의 Ports 목록에서 **Ren'Py Engine Runner (mkrp)**를 실행합니다.
+### 1. 기본 디렉토리 구조
+기기의 SD 카드 내 `ports` 디렉토리에 다음과 같이 게임 폴더를 구성합니다:
+
+```text
+roms/ (또는 storage/)
+  ports/
+    VIRTUES.sh                 <-- PortMaster 실행 런처 스크립트
+    VIRTUES/                   <-- 게임 디렉토리
+      renpy/                   <-- PortMaster 공식 Ren'Py 런타임 (SquashFS 마운트)
+      game/                    <-- ⭐️ 게임 본편 에셋 및 스크립트 폴더
+        *.rpa                  <-- 게임 리소스 아카이브 파일들
+        patch_virtues_assets.rpa <-- 변환된 이미지 패치 아카이브 (선택)
+        zz_avif_loader.rpy     <-- Ren'Py 8 하위 호환 및 가상 이미지 로더
+        zz_handheld_patch.rpy  <-- 핸드헬드 패드/메모리 최적화 스크립트
+      log.txt                  <-- 실행 로그 및 에러 출력 파일
+```
 
 ---
 
@@ -46,7 +42,11 @@
 
 ---
 
-## 💡 지원 게임 및 주의사항
-- **Ren'Py 8 (기본 권장)**: 최신 파이썬 3 기반 비주얼 노벨 완벽 대응.
-- **Ren'Py 7 (서브 지원)**: 클래식 및 파이썬 2 기반 비주얼 노벨 지원.
-- **1GB RAM 기기(RG40XXH) 최적화**: 1080p 고해상도 이미지를 640x480 화면에 맞추어 자동 온더플라이 다운스케일링하여 튕김(OOM)을 원천 방지합니다.
+## 💡 호환성 및 최적화 팁
+
+1. **Python 2 ➔ 3 스탯 비교 호환성**:
+   - Ren'Py 7 구버전 게임의 스탯/호감도 비교 구문(`__cmp__`, `< None`) 충돌을 방지하기 위해 `zz_avif_loader.rpy`를 `game/` 폴더에 포함하면 자동으로 방어됩니다.
+2. **저사양 RAM 기기 메모리 관리**:
+   - `zz_handheld_patch.rpy`에 `config.image_cache_size_mb = 128`이 설정되어 있어 1080p 고해상도 CG 로딩 중 발생할 수 있는 메모리 부족(OOM) 강제 종료를 방지합니다.
+3. **AVIF 등 비표준 에셋 대응**:
+   - SDL2가 지원하지 않는 이미지 포맷은 `patch_virtues_assets.rpa`처럼 PNG/WebP로 변환 후 패치 아카이브로 묶어 제공하면 `zz_avif_loader.rpy`가 자동으로 리다이렉트합니다.
