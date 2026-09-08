@@ -21,7 +21,7 @@
     "image": {},
     "rtr": false,
     "exp": false,
-    "runtime": null,
+    "runtime": "renpy_8.3.4.squashfs",
     "reqs": [],
     "arch": [
       "aarch64"
