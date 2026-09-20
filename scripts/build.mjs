@@ -32,7 +32,7 @@ async function build() {
   }
 
   // Copy template directories
-  const templateDirs = ['fonts', 'conf', 'lib'];
+  const templateDirs = ['fonts', 'conf', 'lib', 'game'];
   for (const dirName of templateDirs) {
     const srcDir = path.join(TEMPLATE_DIR, dirName);
     const destDir = path.join(DIST_APP_DIR, dirName);

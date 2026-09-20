@@ -118,10 +118,12 @@ export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 export LD_LIBRARY_PATH="$RENPY_DIR:$RENPY_DIR/lib:$LD_LIBRARY_PATH"
 export PYTHONPATH="$RENPY_DIR:$RENPY_DIR/lib/python3.12:$PYTHONPATH"
 
-# Ren'Py optimization & redirection envs (pure original game folder without extra patches)
+# Ren'Py optimization & redirection envs
 export RENPY_PATH_TO_SAVES="$SAVE_DIR"
 export RENPY_NO_REDIRECT_STDIO=1
-export RENPY_LESS_MEMORY=1
+# Smooth rendering and VSync sync on ARM64 Mali GPUs
+export RENPY_GL_VSYNC=1
+export RENPY_GL_SWAP_INTERVAL=1
 
 cd "$GAME_ROOT"
 
