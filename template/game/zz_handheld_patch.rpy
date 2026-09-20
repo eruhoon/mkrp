@@ -14,8 +14,6 @@ init -999 python:
     config.framerate = 60
 
     # 2. Save / Load & Confirm Dialog Optimization
-    # Enable file scan caching to prevent slow microSD scanning on every page render
-    config.file_scan_cache = True
     # Eliminate sluggish transitions when opening/closing overwrite confirm dialogs
     config.enter_yesno_transition = None
     config.exit_yesno_transition = None
