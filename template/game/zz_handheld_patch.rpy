@@ -1,12 +1,40 @@
 # ==============================================================================
-# mkrp Handheld Performance & Compatibility Patch
-# Optimized for ARM64 PortMaster Handheld Consoles (4GB RAM)
+# mkrp Universal Handheld Performance & Compatibility Patch
+# Supports: All Ren'Py 7 & 8 Games on PortMaster Handheld Consoles
 # ==============================================================================
 
 init -999 python:
     import builtins
+    import os
 
-    # Python 2 cmp builtin polyfill for Ren'Py 8 / Python 3
+    # 1. Automatic Hardware RAM Detection & Adaptive Image Cache
+    # Detects system memory via /proc/meminfo to scale from 1GB to 4GB+ devices safely
+    def _detect_system_ram_mb():
+        try:
+            if os.path.exists('/proc/meminfo'):
+                with open('/proc/meminfo', 'r') as f:
+                    for line in f:
+                        if line.startswith('MemTotal:'):
+                            kb = int(line.split()[1])
+                            return kb // 1024
+        except Exception:
+            pass
+        return 2048  # Safe default fallback
+
+    _sys_ram = _detect_system_ram_mb()
+    if _sys_ram >= 3500:       # 4GB+ RAM devices (RG Cube, RG556, Odin, etc.)
+        config.image_cache_size_mb = 512
+        config.predict_statements = 48
+    elif _sys_ram >= 1800:     # 2GB RAM devices (RK3566 2GB, RG405M, etc.)
+        config.image_cache_size_mb = 256
+        config.predict_statements = 32
+    else:                      # 1GB RAM devices (RG35XX H, RG40XX H, etc.)
+        config.image_cache_size_mb = 160
+        config.predict_statements = 24
+
+    config.framerate = 60
+
+    # 2. Python 2 cmp Builtin Polyfill (Ren'Py 7 -> Ren'Py 8 Migration)
     if not hasattr(builtins, 'cmp'):
         def _py2_cmp(a, b):
             if a is None and b is None:
@@ -26,12 +54,7 @@ init -999 python:
         builtins.cmp = _py2_cmp
 
 init 999 python:
-    # 1. 4GB RAM Handheld Performance & Image Cache Tuning
-    config.image_cache_size_mb = 512
-    config.predict_statements = 48
-    config.framerate = 60
-
-    # 2. Save / Load & Confirm Dialog Optimization
+    # 3. Universal Save / Load & Confirm Dialog Optimization
     config.enter_yesno_transition = None
     config.exit_yesno_transition = None
     try:
@@ -42,11 +65,11 @@ init 999 python:
     except Exception:
         pass
 
-    # 3. Rollback Memory Management (Prevent memory bloat during long sessions)
+    # 4. Universal Rollback Memory Management (Prevent memory bloat during long sessions)
     config.rollback_length = 20
     config.hard_rollback_limit = 40
 
-    # 4. Snappy Fade / Dissolve Transitions for Handheld
+    # 5. Snappy Fade / Dissolve Transitions for Handheld
     try:
         fade = Fade(0.15, 0.0, 0.15)
         dissolve = Dissolve(0.15)
@@ -56,7 +79,7 @@ init 999 python:
     except Exception:
         pass
 
-    # 5. Class comparison polyfills (Python 2 -> Python 3 migration)
+    # 6. Universal Class Comparison Polyfills (Python 3 '<' comparison with None defense)
     def _make_comparable(cls):
         if not cls:
             return cls
@@ -101,77 +124,80 @@ init 999 python:
         cls.__ne__ = lambda self, other: True if other is None else (_do_cmp(self, other) != 0)
         return cls
 
-    for cls_name in ['Love', 'TrueLove', 'FalseLove', 'Lust', 'Harem', 'MeterWrapper', 'Meter', 'Progress', 'Attr', 'Stat', 'TimeUnit', 'Cash', 'Message']:
-        target_cls = globals().get(cls_name)
-        if target_cls and isinstance(target_cls, type):
-            _make_comparable(target_cls)
-
     for name, obj in list(globals().items()):
         if isinstance(obj, type) and hasattr(obj, '__cmp__'):
             _make_comparable(obj)
 
-    # 6. Direct patch for Event.get_triggerable (VIRTUES and similar games)
-    if 'Event' in globals():
-        _orig_gt = getattr(Event, 'get_triggerable', None)
-        if _orig_gt:
-            def _patched_get_triggerable(self):
-                if not self._triggerable:
-                    return False
-                if getCEvent() and getCEvent().name == self.name:
-                    return False
-                if not self.repeatable and self.seen:
-                    return False
-                if self.count_of_day > 0 and self.count_day == Date(t):
-                    return False
-                else:
-                    self.count_day = Date(t)
-                    self.count_of_day = 0
-                if self.pre_event and any(not seen(ev) for ev in self.pre_event):
-                    return False
-                if self._time and t < self._time:
-                    return False
-                if self.period and (t.period not in self.period):
-                    return False
-                if self.day and (t.day not in self.day):
-                    return False
-                if self.type == "TrueLove" and not (self.nz.love >= self.stage * self.nz.love.base):
-                    return False
-                elif self.type == "FalseLove" and not (self.nz.love.progress.is_full and self.nz.love.stage == self.stage):
-                    return False
-                elif self.nz and self.love is not None and self.nz.love < self.love:
-                    return False
-                for ifer in self.ifs:
-                    if ifer() == False:
+    # 7. Specific Game Hooks (Guarded: Only activates if specific game signatures match)
+    # VIRTUES Game Signature Check
+    _is_virtues = ('getCEvent' in globals() and 'Date' in globals() and 't' in globals())
+    if _is_virtues:
+        for cls_name in ['Love', 'TrueLove', 'FalseLove', 'Lust', 'Harem', 'MeterWrapper', 'Meter', 'Progress', 'Attr', 'Stat', 'TimeUnit', 'Cash', 'Message']:
+            target_cls = globals().get(cls_name)
+            if target_cls and isinstance(target_cls, type):
+                _make_comparable(target_cls)
+
+        if 'Event' in globals():
+            _orig_gt = getattr(Event, 'get_triggerable', None)
+            if _orig_gt:
+                def _patched_get_triggerable(self):
+                    if not self._triggerable:
                         return False
-                try:
-                    if self.condition and not eval(self.condition):
+                    if getCEvent() and getCEvent().name == self.name:
                         return False
-                except Exception:
-                    return False
-                return True
-            Event.get_triggerable = _patched_get_triggerable
+                    if not self.repeatable and self.seen:
+                        return False
+                    if self.count_of_day > 0 and self.count_day == Date(t):
+                        return False
+                    else:
+                        self.count_day = Date(t)
+                        self.count_of_day = 0
+                    if self.pre_event and any(not seen(ev) for ev in self.pre_event):
+                        return False
+                    if self._time and t < self._time:
+                        return False
+                    if self.period and (t.period not in self.period):
+                        return False
+                    if self.day and (t.day not in self.day):
+                        return False
+                    if self.type == "TrueLove" and not (self.nz.love >= self.stage * self.nz.love.base):
+                        return False
+                    elif self.type == "FalseLove" and not (self.nz.love.progress.is_full and self.nz.love.stage == self.stage):
+                        return False
+                    elif self.nz and self.love is not None and self.nz.love < self.love:
+                        return False
+                    for ifer in self.ifs:
+                        if ifer() == False:
+                            return False
+                    try:
+                        if self.condition and not eval(self.condition):
+                            return False
+                    except Exception:
+                        return False
+                    return True
+                Event.get_triggerable = _patched_get_triggerable
 
-    # 7. Night scene & Clock DynamicDisplayable optimization
-    if 'clock_solid_func' in globals():
-        def _opt_clock_solid_func(screen_time, at, *args, **kwargs):
-            return Solid(clock_color, *args, **kwargs), 0.5
-        globals()['clock_solid_func'] = _opt_clock_solid_func
+        # Night scene & Clock DynamicDisplayable optimization
+        if 'clock_solid_func' in globals():
+            def _opt_clock_solid_func(screen_time, at, *args, **kwargs):
+                return Solid(clock_color, *args, **kwargs), 0.5
+            globals()['clock_solid_func'] = _opt_clock_solid_func
 
-    # Optimize dynamic date/period Text object storm (0.01s -> 0.5s) to prevent memory fragmentation
-    if 'dynamic_period_func' in globals():
-        _orig_dpf = globals()['dynamic_period_func']
-        def _opt_dynamic_period_func(screen_time, at, *args, **kwargs):
-            res, _ = _orig_dpf(screen_time, at, *args, **kwargs)
-            return res, 0.5
-        globals()['dynamic_period_func'] = _opt_dynamic_period_func
+        # Optimize dynamic date/period Text object storm (0.01s -> 0.5s)
+        if 'dynamic_period_func' in globals():
+            _orig_dpf = globals()['dynamic_period_func']
+            def _opt_dynamic_period_func(screen_time, at, *args, **kwargs):
+                res, _ = _orig_dpf(screen_time, at, *args, **kwargs)
+                return res, 0.5
+            globals()['dynamic_period_func'] = _opt_dynamic_period_func
 
-    if 'dynamic_date_func' in globals():
-        _orig_ddf = globals()['dynamic_date_func']
-        def _opt_dynamic_date_func(screen_time, at, *args, **kwargs):
-            res, _ = _orig_ddf(screen_time, at, *args, **kwargs)
-            return res, 0.5
-        globals()['dynamic_date_func'] = _opt_dynamic_date_func
+        if 'dynamic_date_func' in globals():
+            _orig_ddf = globals()['dynamic_date_func']
+            def _opt_dynamic_date_func(screen_time, at, *args, **kwargs):
+                res, _ = _orig_ddf(screen_time, at, *args, **kwargs)
+                return res, 0.5
+            globals()['dynamic_date_func'] = _opt_dynamic_date_func
 
-    # Reduce 6-pass text outline overdraw to 1-pass for ARM Mali GPUs
-    if hasattr(store, 'gui') and hasattr(store.gui, 'clock_timeext_outlines'):
-        store.gui.clock_timeext_outlines = [(1.5, "#F0EEE924")]
+        # Reduce 6-pass text outline overdraw to 1-pass for ARM Mali GPUs
+        if hasattr(store, 'gui') and hasattr(store.gui, 'clock_timeext_outlines'):
+            store.gui.clock_timeext_outlines = [(1.5, "#F0EEE924")]
