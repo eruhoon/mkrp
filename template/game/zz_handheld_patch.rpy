@@ -7,13 +7,37 @@ init -999 python:
     import builtins
     import renpy
 
-    # 1. Image Cache & Rendering Performance Tuning
-    # Allocate 256MB for image cache to eliminate stutter when switching dialogues/CGs
-    config.image_cache_size_mb = 256
-    config.predict_statements = 32
+    # 1. 4GB RAM Handheld Performance & Image Cache Tuning
+    # Allocate 512MB for image cache to eliminate stutter when switching dialogues/CGs
+    config.image_cache_size_mb = 512
+    config.predict_statements = 48
     config.framerate = 60
 
-    # 2. Python 2 cmp builtin polyfill for Ren'Py 8 / Python 3
+    # 2. Save / Load & Confirm Dialog Optimization
+    # Enable file scan caching to prevent slow microSD scanning on every page render
+    config.file_scan_cache = True
+    # Eliminate sluggish transitions when opening/closing overwrite confirm dialogs
+    config.enter_yesno_transition = None
+    config.exit_yesno_transition = None
+    # Snappy menu transitions
+    config.enter_transition = Dissolve(0.15)
+    config.exit_transition = Dissolve(0.15)
+    config.intra_transition = Dissolve(0.15)
+    config.after_load_transition = Dissolve(0.15)
+
+    # 3. Rollback Memory Management (Prevent memory bloat during long sessions)
+    config.rollback_length = 20
+    config.hard_rollback_limit = 40
+
+    # 4. Snappy Fade / Dissolve Transitions for Handheld
+    # Override standard slow transitions (1.0s~2.0s) with responsive 0.15s~0.3s ones
+    fade = Fade(0.15, 0.0, 0.15)
+    dissolve = Dissolve(0.15)
+    fadehold = Fade(0.15, 0.2, 0.15)
+    longdissolve = Dissolve(0.3)
+    flashlight = Dissolve(0.3)
+
+    # 5. Python 2 cmp builtin polyfill for Ren'Py 8 / Python 3
     if not hasattr(builtins, 'cmp'):
         def _py2_cmp(a, b):
             if a is None and b is None:
@@ -33,7 +57,7 @@ init -999 python:
         builtins.cmp = _py2_cmp
 
 init 999 python:
-    # 3. Class comparison polyfills (Python 2 -> Python 3 migration)
+    # 6. Class comparison polyfills (Python 2 -> Python 3 migration)
     def _make_comparable(cls):
         if not cls:
             return cls
@@ -87,7 +111,7 @@ init 999 python:
         if isinstance(obj, type) and hasattr(obj, '__cmp__'):
             _make_comparable(obj)
 
-    # 4. Direct patch for Event.get_triggerable (VIRTUES and similar games)
+    # 7. Direct patch for Event.get_triggerable (VIRTUES and similar games)
     if 'Event' in globals():
         _orig_gt = getattr(Event, 'get_triggerable', None)
         if _orig_gt:
@@ -128,13 +152,28 @@ init 999 python:
                 return True
             Event.get_triggerable = _patched_get_triggerable
 
-    # 5. Night scene & Clock DynamicDisplayable optimization
+    # 8. Night scene & Clock DynamicDisplayable optimization
     # In VIRTUES, clock_solid_func requests redraw every 0.01s (100fps), causing severe
     # GIL thrashing and TBDR GPU alpha overdraw during night/time transition.
     if 'clock_solid_func' in globals():
         def _opt_clock_solid_func(screen_time, at, *args, **kwargs):
             return Solid(clock_color, *args, **kwargs), 0.5
         globals()['clock_solid_func'] = _opt_clock_solid_func
+
+    # Optimize dynamic date/period Text object storm (0.01s -> 0.5s) to prevent memory fragmentation
+    if 'dynamic_period_func' in globals():
+        _orig_dpf = globals()['dynamic_period_func']
+        def _opt_dynamic_period_func(screen_time, at, *args, **kwargs):
+            res, _ = _orig_dpf(screen_time, at, *args, **kwargs)
+            return res, 0.5
+        globals()['dynamic_period_func'] = _opt_dynamic_period_func
+
+    if 'dynamic_date_func' in globals():
+        _orig_ddf = globals()['dynamic_date_func']
+        def _opt_dynamic_date_func(screen_time, at, *args, **kwargs):
+            res, _ = _orig_ddf(screen_time, at, *args, **kwargs)
+            return res, 0.5
+        globals()['dynamic_date_func'] = _opt_dynamic_date_func
 
     # Reduce 6-pass text outline overdraw to 1-pass for ARM Mali GPUs
     if hasattr(store, 'gui') and hasattr(store.gui, 'clock_timeext_outlines'):
