@@ -6,22 +6,40 @@ const ROOT_DIR = process.cwd();
 const pkg = JSON.parse(fs.readFileSync(path.join(ROOT_DIR, 'package.json'), 'utf-8'));
 const DIST_DIR = path.join(ROOT_DIR, 'dist');
 const TEMPLATE_DIR = path.join(ROOT_DIR, 'template');
+const PATCHES_DIR = path.join(ROOT_DIR, 'patches');
 const DIST_APP_DIR = path.join(DIST_DIR, 'mkrp');
-const ZIP_NAME = `mkrp-v${pkg.version}.zip`;
-const DIST_ZIP_PATH = path.join(DIST_DIR, ZIP_NAME);
+
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let patchName = null;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--patch' || args[i] === '-p') {
+      patchName = args[++i];
+    }
+  }
+  return { patchName };
+}
 
 async function build() {
+  const { patchName } = parseArgs();
+  const zipSuffix = patchName ? `-${patchName}` : '';
+  const ZIP_NAME = `mkrp${zipSuffix}-v${pkg.version}.zip`;
+  const DIST_ZIP_PATH = path.join(DIST_DIR, ZIP_NAME);
+
   console.log('========================================================');
   console.log(`[mkrp] Building PortMaster Package for Ren'Py Runner v${pkg.version}`);
+  if (patchName) {
+    console.log(`[mkrp] Target Local Patch Overlay: [${patchName}]`);
+  } else {
+    console.log(`[mkrp] Mode: Pure Universal Template (No game-specific patches)`);
+  }
   console.log('========================================================');
 
   // 1. Prepare directories
   fs.rmSync(DIST_DIR, { recursive: true, force: true });
   fs.mkdirSync(DIST_APP_DIR, { recursive: true });
 
-
-
-  // 3. Copy template files
+  // 2. Copy template files
   const templateFiles = ['port.json', 'keymap.gptk'];
   for (const file of templateFiles) {
     const src = path.join(TEMPLATE_DIR, file);
@@ -31,7 +49,7 @@ async function build() {
     }
   }
 
-  // Copy template directories
+  // 3. Copy template directories
   const templateDirs = ['fonts', 'conf', 'lib', 'game'];
   for (const dirName of templateDirs) {
     const srcDir = path.join(TEMPLATE_DIR, dirName);
@@ -41,7 +59,20 @@ async function build() {
     }
   }
 
-  // Copy launcher to dist root with strict Unix LF line endings
+  // 4. Inject local game-specific patch overlay if requested
+  if (patchName) {
+    const specificPatchDir = path.join(PATCHES_DIR, patchName);
+    if (!fs.existsSync(specificPatchDir)) {
+      console.error(`[mkrp] Error: Specified patch directory does not exist: ${specificPatchDir}`);
+      process.exit(1);
+    }
+    const targetGameDir = path.join(DIST_APP_DIR, 'game');
+    fs.mkdirSync(targetGameDir, { recursive: true });
+    fs.cpSync(specificPatchDir, targetGameDir, { recursive: true });
+    console.log(`[mkrp] Applied local overlay patch from: patches/${patchName}`);
+  }
+
+  // 5. Copy launcher to dist root with strict Unix LF line endings
   const launcherSrc = path.join(TEMPLATE_DIR, 'mkrp.sh');
   const launcherDest = path.join(DIST_DIR, 'mkrp.sh');
   let launcherContent = fs.readFileSync(launcherSrc, 'utf8');
@@ -59,7 +90,7 @@ async function build() {
   fs.writeFileSync(path.join(gameDir, '.gitkeep'), '');
   fs.writeFileSync(path.join(savesDir, '.gitkeep'), '');
 
-  // 4. Create PortMaster distribution zip
+  // 6. Create PortMaster distribution zip
   console.log(`[mkrp] Packaging into dist/${ZIP_NAME}...`);
   const distZip = new AdmZip();
   distZip.addLocalFile(launcherDest);

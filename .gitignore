@@ -1,4 +1,4 @@
-﻿# Rust build artifacts
+# Rust build artifacts
 /target/
 **/*.rs.bk
 
@@ -8,6 +8,9 @@
 *.tar.gz
 *.squashfs
 *.deb
+
+# Local and game-specific overlay patches (never committed to git)
+/patches/
 
 # Node.js
 node_modules/

@@ -6,8 +6,25 @@
 init -999 python:
     import builtins
     import os
+    import gc
 
-    # 1. Automatic Hardware RAM Detection & Adaptive Image Cache
+    # 1. Python GC Optimization for Handheld Devices
+    # Tune GC thresholds to eliminate micro-stutter during frequent Displayable allocations
+    try:
+        gc.set_threshold(25000, 10, 10)
+    except Exception:
+        pass
+
+    # 2. Ren'Py 8 Screen System Compatibility Polyfill
+    # Fixes AttributeError: module 'renpy' has no attribute 'has_screen' on legacy Ren'Py 7 games
+    if not hasattr(renpy, 'has_screen'):
+        try:
+            import renpy.display.screen as _screen
+            renpy.has_screen = getattr(_screen, 'has_screen', lambda name: renpy.get_screen(name) is not None)
+        except Exception:
+            pass
+
+    # 3. Automatic Hardware RAM Detection & Adaptive Image Cache
     # Detects system memory via /proc/meminfo to scale from 1GB to 4GB+ devices safely
     def _detect_system_ram_mb():
         try:
@@ -22,7 +39,7 @@ init -999 python:
         return 2048  # Safe default fallback
 
     _sys_ram = _detect_system_ram_mb()
-    if _sys_ram >= 3500:       # 4GB+ RAM devices (RG Cube, RG556, Odin, etc.)
+    if _sys_ram >= 3500:       # 4GB+ RAM devices (RG VITA Pro, RG Cube, RG556, Odin, etc.)
         config.image_cache_size_mb = 512
         config.predict_statements = 48
     elif _sys_ram >= 1800:     # 2GB RAM devices (RK3566 2GB, RG405M, etc.)
@@ -30,11 +47,11 @@ init -999 python:
         config.predict_statements = 32
     else:                      # 1GB RAM devices (RG35XX H, RG40XX H, etc.)
         config.image_cache_size_mb = 160
-        config.predict_statements = 24
+        config.predict_statements = 16  # Conservative prediction to prevent OOM spikes
 
     config.framerate = 60
 
-    # 2. Python 2 cmp Builtin Polyfill (Ren'Py 7 -> Ren'Py 8 Migration)
+    # 4. Python 2 cmp Builtin Polyfill (Ren'Py 7 -> Ren'Py 8 Migration)
     if not hasattr(builtins, 'cmp'):
         def _py2_cmp(a, b):
             if a is None and b is None:
@@ -54,7 +71,7 @@ init -999 python:
         builtins.cmp = _py2_cmp
 
 init 999 python:
-    # 3. Universal Save / Load & Confirm Dialog Optimization
+    # 5. Universal Save / Load & Confirm Dialog Optimization
     # Instant menu opening without sluggish FBO Dissolve freezes
     config.enter_yesno_transition = None
     config.exit_yesno_transition = None
@@ -66,9 +83,27 @@ init 999 python:
     except Exception:
         pass
 
-    # Lightweight screenshot capture size to speed up menu opening freeze by ~60%
-    config.thumbnail_width = 256
-    config.thumbnail_height = 144
+    # Save screenshot compression to optimize MicroSD writing speed without downscaling resolution
+    try:
+        config.thumbnail_quality = 75
+    except Exception:
+        pass
+
+    # Ensure save slot screenshots always seamlessly fit the UI slot dimensions
+    try:
+        import renpy.loadsave as _ls
+        _orig_slot_ss = getattr(_ls, 'slot_screenshot', None)
+        if _orig_slot_ss:
+            def _fitted_slot_screenshot(slotname):
+                ss = _orig_slot_ss(slotname)
+                target_w = getattr(config, 'thumbnail_width', None)
+                target_h = getattr(config, 'thumbnail_height', None)
+                if ss is not None and target_w and target_h:
+                    return Transform(ss, xsize=target_w, ysize=target_h)
+                return ss
+            _ls.slot_screenshot = _fitted_slot_screenshot
+    except Exception:
+        pass
 
     # Slot metadata in-memory cache to eliminate massive microSD random I/O during save/load
     try:
@@ -96,29 +131,30 @@ init 999 python:
                 return res
             _ls.slot_mtime = _cached_slot_mtime
 
+        # Granular cache invalidation: only evict modified slot instead of clearing everything
         _orig_save = getattr(_ls, 'save', None)
         if _orig_save:
             def _opt_save(slot, *args, **kwargs):
-                if _orig_slot_json: _slot_json_cache.clear()
-                if _orig_slot_mtime: _slot_mtime_cache.clear()
+                if _orig_slot_json: _slot_json_cache.pop(slot, None)
+                if _orig_slot_mtime: _slot_mtime_cache.pop(slot, None)
                 return _orig_save(slot, *args, **kwargs)
             _ls.save = _opt_save
 
         _orig_unlink = getattr(_ls, 'unlink_save', None)
         if _orig_unlink:
             def _opt_unlink(slot, *args, **kwargs):
-                if _orig_slot_json: _slot_json_cache.clear()
-                if _orig_slot_mtime: _slot_mtime_cache.clear()
+                if _orig_slot_json: _slot_json_cache.pop(slot, None)
+                if _orig_slot_mtime: _slot_mtime_cache.pop(slot, None)
                 return _orig_unlink(slot, *args, **kwargs)
             _ls.unlink_save = _opt_unlink
     except Exception:
         pass
 
-    # 4. Universal Rollback Memory Management (Prevent memory bloat during long sessions)
+    # 6. Universal Rollback Memory Management (Prevent memory bloat during long sessions)
     config.rollback_length = 20
     config.hard_rollback_limit = 40
 
-    # 5. Snappy Fade / Dissolve Transitions for Handheld
+    # 7. Snappy Fade / Dissolve Transitions for Handheld
     try:
         fade = Fade(0.15, 0.0, 0.15)
         dissolve = Dissolve(0.15)
@@ -128,7 +164,8 @@ init 999 python:
     except Exception:
         pass
 
-    # 6. Universal Class Comparison Polyfills (Python 3 '<' comparison with None defense)
+    # 8. Universal Class Comparison Polyfills (Python 3 '<' comparison with None defense)
+    # Optimized value extraction avoiding repeated hasattr exception overhead
     def _make_comparable(cls):
         if not cls:
             return cls
@@ -136,11 +173,7 @@ init 999 python:
         orig_cmp = getattr(cls, '__cmp__', None)
 
         def _get_val(x):
-            if hasattr(x, 'value'):
-                return x.value
-            if hasattr(x, '_value'):
-                return x._value
-            return x
+            return getattr(x, 'value', getattr(x, '_value', x))
 
         def _do_cmp(self, other):
             if other is None:
@@ -176,77 +209,3 @@ init 999 python:
     for name, obj in list(globals().items()):
         if isinstance(obj, type) and hasattr(obj, '__cmp__'):
             _make_comparable(obj)
-
-    # 7. Specific Game Hooks (Guarded: Only activates if specific game signatures match)
-    # VIRTUES Game Signature Check
-    _is_virtues = ('getCEvent' in globals() and 'Date' in globals() and 't' in globals())
-    if _is_virtues:
-        for cls_name in ['Love', 'TrueLove', 'FalseLove', 'Lust', 'Harem', 'MeterWrapper', 'Meter', 'Progress', 'Attr', 'Stat', 'TimeUnit', 'Cash', 'Message']:
-            target_cls = globals().get(cls_name)
-            if target_cls and isinstance(target_cls, type):
-                _make_comparable(target_cls)
-
-        if 'Event' in globals():
-            _orig_gt = getattr(Event, 'get_triggerable', None)
-            if _orig_gt:
-                def _patched_get_triggerable(self):
-                    if not self._triggerable:
-                        return False
-                    if getCEvent() and getCEvent().name == self.name:
-                        return False
-                    if not self.repeatable and self.seen:
-                        return False
-                    if self.count_of_day > 0 and self.count_day == Date(t):
-                        return False
-                    else:
-                        self.count_day = Date(t)
-                        self.count_of_day = 0
-                    if self.pre_event and any(not seen(ev) for ev in self.pre_event):
-                        return False
-                    if self._time and t < self._time:
-                        return False
-                    if self.period and (t.period not in self.period):
-                        return False
-                    if self.day and (t.day not in self.day):
-                        return False
-                    if self.type == "TrueLove" and not (self.nz.love >= self.stage * self.nz.love.base):
-                        return False
-                    elif self.type == "FalseLove" and not (self.nz.love.progress.is_full and self.nz.love.stage == self.stage):
-                        return False
-                    elif self.nz and self.love is not None and self.nz.love < self.love:
-                        return False
-                    for ifer in self.ifs:
-                        if ifer() == False:
-                            return False
-                    try:
-                        if self.condition and not eval(self.condition):
-                            return False
-                    except Exception:
-                        return False
-                    return True
-                Event.get_triggerable = _patched_get_triggerable
-
-        # Night scene & Clock DynamicDisplayable optimization
-        if 'clock_solid_func' in globals():
-            def _opt_clock_solid_func(screen_time, at, *args, **kwargs):
-                return Solid(clock_color, *args, **kwargs), 0.5
-            globals()['clock_solid_func'] = _opt_clock_solid_func
-
-        # Optimize dynamic date/period Text object storm (0.01s -> 0.5s)
-        if 'dynamic_period_func' in globals():
-            _orig_dpf = globals()['dynamic_period_func']
-            def _opt_dynamic_period_func(screen_time, at, *args, **kwargs):
-                res, _ = _orig_dpf(screen_time, at, *args, **kwargs)
-                return res, 0.5
-            globals()['dynamic_period_func'] = _opt_dynamic_period_func
-
-        if 'dynamic_date_func' in globals():
-            _orig_ddf = globals()['dynamic_date_func']
-            def _opt_dynamic_date_func(screen_time, at, *args, **kwargs):
-                res, _ = _orig_ddf(screen_time, at, *args, **kwargs)
-                return res, 0.5
-            globals()['dynamic_date_func'] = _opt_dynamic_date_func
-
-        # Reduce 6-pass text outline overdraw to 1-pass for ARM Mali GPUs
-        if hasattr(store, 'gui') and hasattr(store.gui, 'clock_timeext_outlines'):
-            store.gui.clock_timeext_outlines = [(1.5, "#F0EEE924")]

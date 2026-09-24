@@ -37,14 +37,16 @@ It comes pre-packaged with a universal drop-in patch (`zz_handheld_patch.rpy`) t
 ```text
 mkrp/
 ├── template/
-│   ├── mkrp.sh            # PortMaster device launcher script (runtime mounting & launch)
+│   ├── mkrp.sh            # PortMaster device launcher script (CPU affinity, shader cache & launch)
 │   ├── port.json          # PortMaster metadata and runtime configuration
 │   ├── keymap.gptk        # gptokeyb gamepad/virtual mouse mapping
 │   └── game/
-│       └── zz_handheld_patch.rpy  # ⭐️ Universal performance & compatibility patch
+│       └── zz_handheld_patch.rpy  # ⭐️ Pure universal performance & compatibility patch
+├── patches/               # 🔒 Local game-specific overlay patches (.gitignored, never committed)
 ├── scripts/
-│   ├── build.mjs          # PortMaster zip packaging script
-│   └── clean.mjs          # Clean dist build directory
+│   ├── build.mjs          # PortMaster zip packaging script (supports --patch <name>)
+│   ├── clean.mjs          # Clean dist build directory
+│   └── optimize-assets.mjs# Asset downscaling and optimization tool (sharp)
 ├── HOW_TO_USE.md          # Hardware installation and device setup guide
 ├── package.json           # Node.js project manifest
 └── README.md              # Project documentation
@@ -52,7 +54,7 @@ mkrp/
 
 ### 2. Distribution Package Structure (PortMaster `ports/`)
 
-When you run `npm run build`, `dist/mkrp-v*.zip` is generated. Extracting it produces the standard PortMaster layout:
+When you run `pnpm run build`, `dist/mkrp-v*.zip` is generated. Extracting it produces the standard PortMaster layout:
 
 ```text
 roms/ports/ (or storage/roms/ports/)
@@ -60,8 +62,9 @@ roms/ports/ (or storage/roms/ports/)
 └── mkrp/                  # Main game directory
     ├── port.json          # Port metadata
     ├── keymap.gptk        # Gamepad control mapping
+    ├── conf/              # Persistent configs and Mesa shader disk cache (.cache)
     ├── game/
-    │   ├── zz_handheld_patch.rpy  # ⭐️ Pre-bundled handheld patch (auto-loaded)
+    │   ├── zz_handheld_patch.rpy  # ⭐️ Pre-bundled universal handheld patch (auto-loaded)
     │   └── [User Game Assets]    # Place your game's *.rpa, *.rpyc, and audio here
     └── saves/             # Save data directory
 ```
@@ -73,13 +76,24 @@ roms/ports/ (or storage/roms/ports/)
 ### 1. Build the PortMaster Package
 
 ```bash
-npm install
-npm run build
+pnpm install
+
+# 1) Build pure universal PortMaster package:
+pnpm run build
+
+# 2) (Optional) Build with a local game-specific patch (from patches/<game_name>/):
+pnpm run build --patch <game_name>
 ```
 
-The build script will package everything into `dist/mkrp-v<version>.zip`.
+### 2. (Optional) Optimize PC High-Resolution Game Assets
 
-### 2. Install on Device
+If porting a 1080p/1440p PC game to a 720p/480p handheld device, downscale the assets to save massive amounts of RAM and eliminate SD card loading stutters:
+
+```bash
+pnpm run optimize --input /path/to/extracted/images --max-width 1280 --max-height 720
+```
+
+### 3. Install on Device
 
 1. Extract the `.zip` archive into the `ports/` directory on your handheld console's SD card.
 2. Copy the contents of your Ren'Py game's `game/` folder (such as `*.rpa`, `*.rpyc`, fonts, images) into `mkrp/game/`.

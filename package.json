@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "clean": "node scripts/clean.mjs"
+    "clean": "node scripts/clean.mjs",
+    "optimize": "node scripts/optimize-assets.mjs"
   },
   "keywords": [
     "renpy",

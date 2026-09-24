@@ -50,7 +50,8 @@ export GAME_ROOT
 
 CONF_DIR="$GAME_ROOT/conf"
 SAVE_DIR="$GAME_ROOT/saves"
-mkdir -p "$CONF_DIR" "$SAVE_DIR"
+CACHE_DIR="$CONF_DIR/.cache"
+mkdir -p "$CONF_DIR" "$SAVE_DIR" "$CACHE_DIR"
 
 # Enable logging
 > "$GAME_ROOT/log.txt" && exec > >(tee "$GAME_ROOT/log.txt") 2>&1
@@ -76,6 +77,9 @@ cleanup() {
   $ESUDO kill -9 $(pidof gptokeyb2) 2>/dev/null
   if [ -d "$RENPY_DIR" ]; then
     echo "Unmounting $RENPY_DIR..."
+    if command -v fuser >/dev/null 2>&1; then
+      $ESUDO fuser -k -9 "$RENPY_DIR" 2>/dev/null
+    fi
     $ESUDO umount "$RENPY_DIR" 2>/dev/null
     rmdir "$RENPY_DIR" 2>/dev/null
   fi
@@ -125,11 +129,39 @@ export RENPY_NO_REDIRECT_STDIO=1
 export RENPY_GL_VSYNC=1
 export RENPY_GL_SWAP_INTERVAL=1
 
+# GPU Shader Disk Cache: Prevent on-the-fly shader compile stutters on transitions
+export MESA_SHADER_CACHE_DIR="$CACHE_DIR"
+export MESA_GLSL_CACHE_DIR="$CACHE_DIR"
+export __GL_SHADER_DISK_CACHE_PATH="$CACHE_DIR"
+
+# Mali GPU scheduling & Wayland RT thread priority
+export MALI_SCHED_RT_THREAD_PRIORITY=95
+
+# 5. CPU Big.LITTLE Core Affinity Tuning
+# Prefer high-performance big cores on 8-core SoCs (e.g. RK3576, RK3588, RK3399)
+CPU_AFFINITY_CMD=""
+if [ -n "$FAST_CORES" ]; then
+  CPU_AFFINITY_CMD="$FAST_CORES"
+elif command -v taskset >/dev/null 2>&1; then
+  NUM_CPUS=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 4)
+  if [ "$NUM_CPUS" -ge 8 ]; then
+    CPU_AFFINITY_CMD="taskset -c 4-7"
+  fi
+fi
+
+if [ -n "$CPU_AFFINITY_CMD" ]; then
+  echo "Enabling CPU Big Core Affinity: $CPU_AFFINITY_CMD"
+fi
+
 cd "$GAME_ROOT"
 
-# 5. Launch Ren'Py
+# 6. Launch Ren'Py
 echo "Executing Ren'Py runtime: $RENPY_DIR/startRENPY \"$GAME_ROOT\"..."
-"$RENPY_DIR/startRENPY" "$GAME_ROOT"
+if [ -n "$CPU_AFFINITY_CMD" ]; then
+  $CPU_AFFINITY_CMD "$RENPY_DIR/startRENPY" "$GAME_ROOT"
+else
+  "$RENPY_DIR/startRENPY" "$GAME_ROOT"
+fi
 EXIT_CODE=$?
 
 echo "Ren'Py finished with exit code $EXIT_CODE"
