@@ -10,14 +10,15 @@ It comes pre-packaged with a universal drop-in patch (`zz_handheld_patch.rpy`) t
 
 ### 1. ⚙️ Dynamic Hardware RAM Scaling
 - **Automatic Memory Detection**: Reads `/proc/meminfo` at startup to automatically scale resource allocation based on physical RAM:
-  - **1GB Devices** (e.g., RG35XX H, RG40XX H): 160MB cache, conservative prediction to prevent Out-Of-Memory (OOM) crashes.
-  - **2GB Devices** (e.g., RK3566 2GB, RG405M): 256MB cache, balanced predictive loading.
-  - **4GB+ Devices** (e.g., RG Cube, RG556, Odin): 512MB cache, aggressive asset preloading.
+  - **1GB Devices** (e.g., RG35XX H, RG40XX H): 160MB cache, 16 prediction statements, 96 font glyph cache to prevent Out-Of-Memory (OOM) crashes.
+  - **2GB Devices** (e.g., RK3566 2GB, RG405M): 256MB cache, 32 prediction statements, 160 font glyph cache.
+  - **4GB+ Devices** (e.g., RG VITA Pro, RG Cube, RG556, Odin): 512MB cache, 48 prediction statements, 256 font glyph cache for smooth CJK text rendering.
 - **Rollback Memory Management**: Restricts rollback history buffer (`rollback_length = 20`, `hard_rollback_limit = 40`) to prevent progressive memory bloat during long reading sessions.
 
-### 2. ⚡ MicroSD Save / Load & Menu Acceleration
-- **In-Memory Slot Metadata Caching**: Hooks into `renpy.loadsave.slot_json` and `slot_mtime` to eliminate repeated random I/O read storms across slow MicroSD cards when browsing save pages.
-- **Thumbnail Downscaling**: Resizes save thumbnail snapshots to `256x144`, cutting menu opening freezes by over 60%.
+### 2. ⚡ MicroSD Storage & Save / Load Acceleration
+- **Sequential Read-Ahead Optimization**: Scales kernel block read-ahead queue from default 128KB to 1024KB (1MB) on startup for 30~50% faster sequential asset streaming, and automatically restores original settings upon game exit.
+- **In-Memory Slot Metadata Caching**: Hooks into `renpy.loadsave.slot_json` and `slot_mtime` with granular slot-level eviction to eliminate repeated random I/O storms across slow MicroSD cards.
+- **Auto-Fit Thumbnail Screenshots**: Wraps screenshot displayables to seamlessly fit native UI frame dimensions with quality optimization.
 - **Instant Menu Transitions**: Disables sluggish full-screen FBO Dissolve transitions on confirmation dialogs and menus (`enter_yesno_transition = None`), replacing them with crisp, snappy transitions (0.15s).
 
 ### 3. 🛡️ Ren'Py 8 & Python 3 Compatibility Layer (Compat Polyfills)

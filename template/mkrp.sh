@@ -63,7 +63,21 @@ echo "Date: $(date)"
 echo "Target Platform: aarch64"
 echo "================================================="
 
-# 2. Ren'Py Runtime Mounting (PortMaster official renpy_8.3.4 / 8.1.3)
+# 2. MicroSD Sequential Read-Ahead Optimization (with auto-restore on exit)
+MMC_DEV=""
+ORIG_READ_AHEAD=""
+if [ -d "/sys/block" ]; then
+  MNT_DEV=$(df -P "$GAME_ROOT" 2>/dev/null | awk 'NR==2 {print $1}')
+  BASE_DEV=$(basename "$MNT_DEV" 2>/dev/null | sed 's/p[0-9]*$//')
+  if [ -n "$BASE_DEV" ] && [ -f "/sys/block/$BASE_DEV/queue/read_ahead_kb" ]; then
+    MMC_DEV="$BASE_DEV"
+    ORIG_READ_AHEAD=$(cat "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null)
+    echo "Optimizing MicroSD read-ahead: /sys/block/$MMC_DEV/queue/read_ahead_kb ($ORIG_READ_AHEAD -> 1024)"
+    echo 1024 > "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null
+  fi
+fi
+
+# 3. Ren'Py Runtime Mounting (PortMaster official renpy_8.3.4 / 8.1.3)
 RENPY_RUNTIME="renpy_8.3.4"
 if [ ! -f "$controlfolder/libs/${RENPY_RUNTIME}.squashfs" ] && [ -f "$controlfolder/libs/renpy_8.1.3.squashfs" ]; then
   RENPY_RUNTIME="renpy_8.1.3"
@@ -75,6 +89,13 @@ cleanup() {
   echo "Cleaning up Ren'Py runtime environment..."
   $ESUDO kill -9 $(pidof gptokeyb) 2>/dev/null
   $ESUDO kill -9 $(pidof gptokeyb2) 2>/dev/null
+
+  # Restore original MicroSD read-ahead
+  if [ -n "$MMC_DEV" ] && [ -n "$ORIG_READ_AHEAD" ]; then
+    echo "Restoring MicroSD read-ahead for $MMC_DEV to $ORIG_READ_AHEAD KB..."
+    echo "$ORIG_READ_AHEAD" > "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null
+  fi
+
   if [ -d "$RENPY_DIR" ]; then
     echo "Unmounting $RENPY_DIR..."
     if command -v fuser >/dev/null 2>&1; then
@@ -104,7 +125,7 @@ fi
 
 $ESUDO chmod +x "$RENPY_DIR/startRENPY" 2>/dev/null
 
-# 3. Gamepad keymapping daemon (gptokeyb)
+# 4. Gamepad keymapping daemon (gptokeyb)
 KEYMAP_FILE="$GAME_ROOT/keymap.gptk"
 if [ ! -f "$KEYMAP_FILE" ] && [ -f "$SCRIPT_DIR/keymap.gptk" ]; then
   KEYMAP_FILE="$SCRIPT_DIR/keymap.gptk"
@@ -116,7 +137,7 @@ if [ -f "$controlfolder/gptokeyb" ] && [ -f "$KEYMAP_FILE" ]; then
   sleep 0.5
 fi
 
-# 4. Exports and Environment
+# 5. Exports and Environment
 export PORTMASTER_HOME="$controlfolder"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 export LD_LIBRARY_PATH="$RENPY_DIR:$RENPY_DIR/lib:$LD_LIBRARY_PATH"
@@ -137,7 +158,7 @@ export __GL_SHADER_DISK_CACHE_PATH="$CACHE_DIR"
 # Mali GPU scheduling & Wayland RT thread priority
 export MALI_SCHED_RT_THREAD_PRIORITY=95
 
-# 5. CPU Big.LITTLE Core Affinity Tuning
+# 6. CPU Big.LITTLE Core Affinity Tuning
 # Prefer high-performance big cores on 8-core SoCs (e.g. RK3576, RK3588, RK3399)
 CPU_AFFINITY_CMD=""
 if [ -n "$FAST_CORES" ]; then
@@ -155,7 +176,7 @@ fi
 
 cd "$GAME_ROOT"
 
-# 6. Launch Ren'Py
+# 7. Launch Ren'Py
 echo "Executing Ren'Py runtime: $RENPY_DIR/startRENPY \"$GAME_ROOT\"..."
 if [ -n "$CPU_AFFINITY_CMD" ]; then
   $CPU_AFFINITY_CMD "$RENPY_DIR/startRENPY" "$GAME_ROOT"

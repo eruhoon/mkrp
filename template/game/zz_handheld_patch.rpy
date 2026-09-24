@@ -42,12 +42,15 @@ init -999 python:
     if _sys_ram >= 3500:       # 4GB+ RAM devices (RG VITA Pro, RG Cube, RG556, Odin, etc.)
         config.image_cache_size_mb = 512
         config.predict_statements = 48
+        config.font_cache_size = 256  # Ample CJK glyph cache for smooth text rendering
     elif _sys_ram >= 1800:     # 2GB RAM devices (RK3566 2GB, RG405M, etc.)
         config.image_cache_size_mb = 256
         config.predict_statements = 32
+        config.font_cache_size = 160
     else:                      # 1GB RAM devices (RG35XX H, RG40XX H, etc.)
         config.image_cache_size_mb = 160
         config.predict_statements = 16  # Conservative prediction to prevent OOM spikes
+        config.font_cache_size = 96
 
     config.framerate = 60
 
