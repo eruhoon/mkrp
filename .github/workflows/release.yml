@@ -22,13 +22,14 @@ jobs:
         with:
           node-version: 22
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Install packaging dependencies
-        run: npm install
-
-
+        run: pnpm install --frozen-lockfile
 
       - name: Build PortMaster package
-        run: npm run build
+        run: pnpm run build
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

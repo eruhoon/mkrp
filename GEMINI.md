@@ -36,6 +36,7 @@
    - `package.json` 등 메타데이터 파일의 버전을 올리고 해당 파일만 스테이징하여 별도 커밋합니다.
    - 형식: `chore(release): bump version to vX.Y.Z.0` (또는 `chore: bump version to vX.Y.Z.0`)
    - 예시: `chore(release): bump version to v0.1.1.0`
+   - **태그 생성**: 마이너/패치 버전 배포 시 릴리즈 트리거를 위해 3자리 태그(`vX.Y.Z`, 예: `git tag -a v0.2.0 -m "Release v0.2.0"`)를 생성합니다.
 
 #### 에이전트 자율 작업 커밋 시 (Revision)
 - 에이전트가 자체 판단하여 작업 후 커밋할 때는 작업 내용 단위로 1개 커밋으로 진행합니다.
