@@ -63,24 +63,46 @@ echo "Date: $(date)"
 echo "Target Platform: aarch64"
 echo "================================================="
 
-# 2. MicroSD Sequential Read-Ahead Optimization (with auto-restore on exit)
+# 2. Storage Sequential Read-Ahead Optimization (with auto-restore on exit)
 MMC_DEV=""
 ORIG_READ_AHEAD=""
 if [ -d "/sys/block" ]; then
   MNT_DEV=$(df -P "$GAME_ROOT" 2>/dev/null | awk 'NR==2 {print $1}')
-  BASE_DEV=$(basename "$MNT_DEV" 2>/dev/null | sed 's/p[0-9]*$//')
+  # Support both MicroSD (e.g. mmcblk0p1 -> mmcblk0) and USB storage (e.g. sda1 -> sda)
+  BASE_DEV=$(basename "$MNT_DEV" 2>/dev/null | sed -E 's/(p[0-9]+|[0-9]+)$//')
   if [ -n "$BASE_DEV" ] && [ -f "/sys/block/$BASE_DEV/queue/read_ahead_kb" ]; then
     MMC_DEV="$BASE_DEV"
     ORIG_READ_AHEAD=$(cat "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null)
-    echo "Optimizing MicroSD read-ahead: /sys/block/$MMC_DEV/queue/read_ahead_kb ($ORIG_READ_AHEAD -> 1024)"
+    echo "Optimizing storage read-ahead: /sys/block/$MMC_DEV/queue/read_ahead_kb ($ORIG_READ_AHEAD -> 1024)"
     echo 1024 > "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null
   fi
 fi
 
-# 3. Ren'Py Runtime Mounting (PortMaster official renpy_8.3.4 / 8.1.3)
-RENPY_RUNTIME="renpy_8.3.4"
-if [ ! -f "$controlfolder/libs/${RENPY_RUNTIME}.squashfs" ] && [ -f "$controlfolder/libs/renpy_8.1.3.squashfs" ]; then
+# 3. Ren'Py Runtime Mounting (PortMaster official squashfs)
+# Priority: 1) .renpy_version or conf/runtime.txt override, 2) renpy_8.3.4, 3) renpy_8.1.3, 4) latest renpy_*.squashfs
+CUSTOM_RUNTIME=""
+if [ -f "$GAME_ROOT/.renpy_version" ]; then
+  CUSTOM_RUNTIME=$(head -n 1 "$GAME_ROOT/.renpy_version" 2>/dev/null | tr -d ' \r\n')
+elif [ -f "$CONF_DIR/runtime.txt" ]; then
+  CUSTOM_RUNTIME=$(head -n 1 "$CONF_DIR/runtime.txt" 2>/dev/null | tr -d ' \r\n')
+fi
+
+RENPY_RUNTIME=""
+if [ -n "$CUSTOM_RUNTIME" ] && [ -f "$controlfolder/libs/${CUSTOM_RUNTIME}.squashfs" ]; then
+  RENPY_RUNTIME="$CUSTOM_RUNTIME"
+  echo "Using custom Ren'Py runtime: $RENPY_RUNTIME"
+elif [ -f "$controlfolder/libs/renpy_8.3.4.squashfs" ]; then
+  RENPY_RUNTIME="renpy_8.3.4"
+elif [ -f "$controlfolder/libs/renpy_8.1.3.squashfs" ]; then
   RENPY_RUNTIME="renpy_8.1.3"
+else
+  # Auto-detect latest available renpy runtime squashfs in descending order
+  LATEST_RENPY=$(ls -1 "$controlfolder/libs"/renpy_*.squashfs 2>/dev/null | sort -V -r | head -n 1)
+  if [ -n "$LATEST_RENPY" ]; then
+    RENPY_RUNTIME="$(basename "$LATEST_RENPY" .squashfs)"
+  else
+    RENPY_RUNTIME="renpy_8.3.4"
+  fi
 fi
 
 RENPY_DIR="/tmp/renpy"
@@ -90,9 +112,9 @@ cleanup() {
   $ESUDO kill -9 $(pidof gptokeyb) 2>/dev/null
   $ESUDO kill -9 $(pidof gptokeyb2) 2>/dev/null
 
-  # Restore original MicroSD read-ahead
+  # Restore original storage read-ahead
   if [ -n "$MMC_DEV" ] && [ -n "$ORIG_READ_AHEAD" ]; then
-    echo "Restoring MicroSD read-ahead for $MMC_DEV to $ORIG_READ_AHEAD KB..."
+    echo "Restoring storage read-ahead for $MMC_DEV to $ORIG_READ_AHEAD KB..."
     echo "$ORIG_READ_AHEAD" > "/sys/block/$MMC_DEV/queue/read_ahead_kb" 2>/dev/null
   fi
 
@@ -141,7 +163,14 @@ fi
 export PORTMASTER_HOME="$controlfolder"
 export SDL_GAMECONTROLLERCONFIG="$sdl_controllerconfig"
 export LD_LIBRARY_PATH="$RENPY_DIR:$RENPY_DIR/lib:$LD_LIBRARY_PATH"
-export PYTHONPATH="$RENPY_DIR:$RENPY_DIR/lib/python3.12:$PYTHONPATH"
+
+# Dynamically bind squashfs internal Python path (e.g. python3.12, python3.10, etc.)
+PY_LIB_DIR=$(find "$RENPY_DIR/lib" -maxdepth 1 -name "python3.*" -o -name "python2.*" 2>/dev/null | head -n 1)
+if [ -n "$PY_LIB_DIR" ]; then
+  export PYTHONPATH="$RENPY_DIR:$RENPY_DIR/lib:$PY_LIB_DIR:$PYTHONPATH"
+else
+  export PYTHONPATH="$RENPY_DIR:$RENPY_DIR/lib:$RENPY_DIR/lib/python3.12:$PYTHONPATH"
+fi
 
 # Ren'Py optimization & redirection envs
 export RENPY_PATH_TO_SAVES="$SAVE_DIR"
@@ -159,7 +188,10 @@ export __GL_SHADER_DISK_CACHE_PATH="$CACHE_DIR"
 export MALI_SCHED_RT_THREAD_PRIORITY=95
 
 # 6. CPU Big.LITTLE Core Affinity Tuning
-# Prefer high-performance big cores on 8-core SoCs (e.g. RK3576, RK3588, RK3399)
+# Optimize for:
+# - 8-core SoCs (e.g. RG VITA PRO, RK3588, RK3576): Pin to fast big cores 4-7
+# - 6-core SoCs (e.g. RK3399): Pin to fast big cores 4-5
+# - 4-core SoCs (e.g. RG40XX H / Allwinner H700, RG DS / RK3566): Distributed across all 4 cores
 CPU_AFFINITY_CMD=""
 if [ -n "$FAST_CORES" ]; then
   CPU_AFFINITY_CMD="$FAST_CORES"
@@ -167,6 +199,8 @@ elif command -v taskset >/dev/null 2>&1; then
   NUM_CPUS=$(nproc 2>/dev/null || grep -c ^processor /proc/cpuinfo 2>/dev/null || echo 4)
   if [ "$NUM_CPUS" -ge 8 ]; then
     CPU_AFFINITY_CMD="taskset -c 4-7"
+  elif [ "$NUM_CPUS" -eq 6 ]; then
+    CPU_AFFINITY_CMD="taskset -c 4-5"
   fi
 fi
 

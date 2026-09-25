@@ -42,15 +42,12 @@ init -999 python:
     if _sys_ram >= 3500:       # 4GB+ RAM devices (RG VITA Pro, RG Cube, RG556, Odin, etc.)
         config.image_cache_size_mb = 512
         config.predict_statements = 48
-        config.font_cache_size = 256  # Ample CJK glyph cache for smooth text rendering
     elif _sys_ram >= 1800:     # 2GB RAM devices (RK3566 2GB, RG405M, etc.)
         config.image_cache_size_mb = 256
         config.predict_statements = 32
-        config.font_cache_size = 160
     else:                      # 1GB RAM devices (RG35XX H, RG40XX H, etc.)
         config.image_cache_size_mb = 160
         config.predict_statements = 16  # Conservative prediction to prevent OOM spikes
-        config.font_cache_size = 96
 
     config.framerate = 60
 
@@ -168,45 +165,61 @@ init 999 python:
         pass
 
     # 8. Universal Class Comparison Polyfills (Python 3 '<' comparison with None defense)
-    # Optimized value extraction avoiding repeated hasattr exception overhead
+    # Uses top-level named functions instead of lambdas to prevent Ren'Py pickle/rollback serialization errors
+    def _cmp_get_val(x):
+        return getattr(x, 'value', getattr(x, '_value', x))
+
+    def _cmp_do_compare(self, other):
+        if other is None:
+            return 1
+        orig_cmp = getattr(type(self), '__cmp__', None)
+        if orig_cmp is not None:
+            try:
+                res = orig_cmp(self, other)
+                if res is not None:
+                    return res
+            except Exception:
+                pass
+        v_self = _cmp_get_val(self)
+        v_other = _cmp_get_val(other)
+        if v_other is None:
+            return 1
+        try:
+            if v_self < v_other:
+                return -1
+            elif v_self > v_other:
+                return 1
+            return 0
+        except Exception:
+            return 1
+
+    def _poly_lt(self, other):
+        return False if other is None else (_cmp_do_compare(self, other) < 0)
+
+    def _poly_le(self, other):
+        return False if other is None else (_cmp_do_compare(self, other) <= 0)
+
+    def _poly_gt(self, other):
+        return True if other is None else (_cmp_do_compare(self, other) > 0)
+
+    def _poly_ge(self, other):
+        return True if other is None else (_cmp_do_compare(self, other) >= 0)
+
+    def _poly_eq(self, other):
+        return False if other is None else (_cmp_do_compare(self, other) == 0)
+
+    def _poly_ne(self, other):
+        return True if other is None else (_cmp_do_compare(self, other) != 0)
+
     def _make_comparable(cls):
         if not cls:
             return cls
-
-        orig_cmp = getattr(cls, '__cmp__', None)
-
-        def _get_val(x):
-            return getattr(x, 'value', getattr(x, '_value', x))
-
-        def _do_cmp(self, other):
-            if other is None:
-                return 1
-            if orig_cmp is not None:
-                try:
-                    res = orig_cmp(self, other)
-                    if res is not None:
-                        return res
-                except Exception:
-                    pass
-            v_self = _get_val(self)
-            v_other = _get_val(other)
-            if v_other is None:
-                return 1
-            try:
-                if v_self < v_other:
-                    return -1
-                elif v_self > v_other:
-                    return 1
-                return 0
-            except Exception:
-                return 1
-
-        cls.__lt__ = lambda self, other: False if other is None else (_do_cmp(self, other) < 0)
-        cls.__le__ = lambda self, other: False if other is None else (_do_cmp(self, other) <= 0)
-        cls.__gt__ = lambda self, other: True if other is None else (_do_cmp(self, other) > 0)
-        cls.__ge__ = lambda self, other: True if other is None else (_do_cmp(self, other) >= 0)
-        cls.__eq__ = lambda self, other: False if other is None else (_do_cmp(self, other) == 0)
-        cls.__ne__ = lambda self, other: True if other is None else (_do_cmp(self, other) != 0)
+        cls.__lt__ = _poly_lt
+        cls.__le__ = _poly_le
+        cls.__gt__ = _poly_gt
+        cls.__ge__ = _poly_ge
+        cls.__eq__ = _poly_eq
+        cls.__ne__ = _poly_ne
         return cls
 
     for name, obj in list(globals().items()):
