@@ -2,7 +2,7 @@
 # ==============================================================================
 # mkrp - PortMaster Official Universal Ren'Py Launcher Script
 # Lightweight Ren'Py Runner for ARM64 Handhelds (Knulli, ROCKNIX, ArkOS)
-# Version: 0.1.3.0
+# Version: 0.2.0
 # ==============================================================================
 
 SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}" .sh)"
