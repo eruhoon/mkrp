@@ -1,6 +1,6 @@
 {
   "name": "mkrp",
-  "version": "0.2.1.0",
+  "version": "0.2.1.1",
   "description": "PortMaster Runner for Ren'Py Visual Novels (Ren'Py 8 & 7)",
   "type": "module",
   "scripts": {
