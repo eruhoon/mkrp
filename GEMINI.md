@@ -45,7 +45,11 @@
 
 ---
 
-### 3. 프로젝트 메타데이터 연동
+### 3. 프로젝트 메타데이터 연동 및 표기 규칙
 
-- `package.json`의 `version` 필드는 버전업 커밋 시 함께 갱신합니다.
-- `template/mkrp.sh` 내 `Version:` 주석도 버전업 시 일치하도록 함께 갱신합니다.
+- `package.json`의 `version` 필드는 내부 4자리 체계(`Major.Minor.Patch.Revision`, 예: `0.2.0.0`)를 유지합니다.
+- 단, **외부 노출(Zip 파일명, 로그 배너, 스크립트 헤더 등)**에는 리비전(4번째 자리)을 제외하고 **3자리(`Major.Minor.Patch`, 예: `v0.2.0`)** 형식으로 표시합니다:
+  - 배포 Zip 파일명: `mkrp-v0.2.0.zip` (또는 `mkrp-<patch>-v0.2.0.zip`)
+  - `template/mkrp.sh` 내 `Version:` 주석 및 로그 배너: `0.2.0`
+- `README.md` 및 `HOW_TO_USE.md` 내의 패치 파일명 언급은 최신 표준인 `zz_00_handheld_core.rpy`로 유지합니다.
+

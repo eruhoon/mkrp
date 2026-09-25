@@ -23,11 +23,13 @@ function parseArgs() {
 async function build() {
   const { patchName } = parseArgs();
   const zipSuffix = patchName ? `-${patchName}` : '';
-  const ZIP_NAME = `mkrp${zipSuffix}-v${pkg.version}.zip`;
+  // Display version as 3-digit semver (Major.Minor.Patch) externally
+  const displayVersion = pkg.version.split('.').slice(0, 3).join('.');
+  const ZIP_NAME = `mkrp${zipSuffix}-v${displayVersion}.zip`;
   const DIST_ZIP_PATH = path.join(DIST_DIR, ZIP_NAME);
 
   console.log('========================================================');
-  console.log(`[mkrp] Building PortMaster Package for Ren'Py Runner v${pkg.version}`);
+  console.log(`[mkrp] Building PortMaster Package for Ren'Py Runner v${displayVersion}`);
   if (patchName) {
     console.log(`[mkrp] Target Local Patch Overlay: [${patchName}]`);
   } else {

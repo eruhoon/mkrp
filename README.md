@@ -2,7 +2,7 @@
 
 `mkrp` is a universal launcher template and handheld optimization toolkit designed to run **Ren'Py visual novel games** smoothly and reliably on Linux ARM64-based retro handheld consoles (e.g., RG VITA PRO, RG40XXH, RG DS running ROCKNIX, Knulli, ArkOS) within the **PortMaster** ecosystem.
 
-It comes pre-packaged with a universal drop-in patch (`zz_handheld_patch.rpy`) that resolves Python 2 to 3 migration issues, adapts memory usage to device specs, and eliminates MicroSD card save/load freezes out of the box.
+It comes pre-packaged with a universal drop-in patch (`zz_00_handheld_core.rpy`) that resolves Python 2 to 3 migration issues, adapts memory usage to device specs, and eliminates MicroSD card save/load freezes out of the box.
 
 ---
 
@@ -99,7 +99,7 @@ pnpm run optimize --input /path/to/extracted/images --max-width 1280 --max-heigh
 1. Extract the `.zip` archive into the `ports/` directory on your handheld console's SD card.
 2. Copy the contents of your Ren'Py game's `game/` folder (such as `*.rpa`, `*.rpyc`, fonts, images) into `mkrp/game/`.
    > [!NOTE]
-   > Do **not** overwrite or delete `mkrp/game/zz_handheld_patch.rpy`—it automatically applies the hardware scaling, save speedups, and Python 3 polyfills.
+   > Do **not** overwrite or delete `mkrp/game/zz_00_handheld_core.rpy`—it automatically applies the hardware scaling, save speedups, and Python 3 polyfills.
 3. Launch the game from the **Ports** section in your handheld's frontend (EmulationStation).
 
 > [!TIP]
